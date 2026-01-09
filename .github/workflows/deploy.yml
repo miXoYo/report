@@ -1,0 +1,59 @@
+name: Deploy PDF
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. 安装官方 Typst 编译器
+      - name: Setup Typst
+        uses: typst-community/setup-typst@v4
+
+      # 2. 新增：下载开源中文字体 (思源黑体 & 思源宋体)
+      - name: Download Fonts
+        run: |
+          mkdir fonts
+          # 1. 下载中文思源字体 (GitHub 稳定源)
+          curl -L -o fonts/SourceHanSansCN-Regular.otf https://raw.githubusercontent.com/tkiapril/source-fonts/master/SourceHanSansCN-Regular.otf
+          curl -L -o fonts/SourceHanSerifCN-Regular.otf https://raw.githubusercontent.com/Duolei-Wang/fonts/master/SourceHanSerifCN-Regular.otf
+
+          # 2. 下载 Times New Roman (解决 unknown font family: times new roman)
+          curl -L -o "fonts/Times New Roman.ttf" "https://github.com/justrajdeep/fonts/raw/master/Times%20New%20Roman.ttf"
+
+          # 3. 下载 Arial (解决 unknown font family: arial)
+          curl -L -o fonts/Arial.ttf "https://github.com/root-project/root/raw/master/fonts/arial.ttf"
+
+      # 3. 创建输出目录
+      - name: Create output directory
+        run: mkdir dist
+
+      # 4. 直接编译你的文件 (注意文件名是否正确)
+      #    命令格式: typst compile [输入文件] [输出PDF路径]
+      - name: Compile PDF
+        run: |
+          typst compile --font-path fonts content/AI_Inpainting_Tech_Report_2025.typ dist/report.pdf
+
+      # 5. (可选) 写一个简单的网页，方便你下载
+      - name: Create Index Page
+        run: |
+          echo '<html><body><h1><a href="./report.pdf">点击下载 PDF 报告</a></h1></body></html>' > dist/index.html
+
+      # 6. 上传
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      # 7. 部署
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
